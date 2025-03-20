@@ -8,9 +8,14 @@ import transporter from "@/utills/mailer";
 const cors = Cors({ methods: ["POST", "OPTIONS"] });
 
 // Middleware function for handling CORS
-function runMiddleware(req: NextApiRequest, res: NextApiResponse, fn: Function) {
-    return new Promise((resolve, reject) => {
-        fn(req, res, (result: any) => (result instanceof Error ? reject(result) : resolve(result)));
+function runMiddleware(req: NextApiRequest, res: NextApiResponse, fn: (req: NextApiRequest, res: NextApiResponse, next: (result?: unknown) => void) => void) {
+    return new Promise<void>((resolve, reject) => {
+        fn(req, res, (result) => {
+            if (result instanceof Error) {
+                return reject(result);
+            }
+            return resolve();
+        });
     });
 }
 
@@ -38,8 +43,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await transporter.sendMail(mailOptions);
         res.status(200).json({ statusCode: 200, message: "Email sent successfully!" });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Email error:", error);
-        res.status(500).json({ message: "Failed to send email", error: error.message });
+        if (error instanceof Error) {
+            return res.status(500).json({ message: "Failed to send email", error: error.message });
+        }
     }
 }
